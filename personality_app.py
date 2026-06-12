@@ -1,27 +1,62 @@
 # =========================================================
 # 1. IMPORTS & DEPENDENCIES
-# WHY: Load external libraries required to run the app.
-# - 'streamlit' (st) builds the interactive web interface.
-# - 'FPDF' is the engine that writes and formats our PDF report.
-# - 'tempfile' safely handles file creation in the cloud without crashing the server.
 # =========================================================
 import streamlit as st
 from fpdf import FPDF
 import tempfile
 
-# =========================================================
-# 2. UI INITIALIZATION
-# WHY: Set up the visual entry point for the user.
-# =========================================================
-st.title("Clinical Personality Assessment (Mini-IPIP)")
-st.write("This 20-item assessment measures the Big Five personality traits.")
+# Set the tab title and layout
+st.set_page_config(page_title="Clinical Personality Assessment", layout="centered")
 
-st.header("Patient / Subject Information")
+# =========================================================
+# 2. SIDEBAR: DEVELOPER CREDENTIALS & AUTHORITY STATEMENT
+# WHY: A sidebar keeps your credentials visible and creates a professional SaaS layout.
+# =========================================================
+st.sidebar.title("About the Developer")
+st.sidebar.info(
+    "**Architected by Yatish Kumar**\n\n"
+    "*M.Sc. Psychology | UGC-NET (JRF) & GATE Scholar*\n\n"
+    "This clinical application was developed to democratize access to empirically validated psychometric tools. "
+    "By bridging the gap between rigorous clinical and biological psychology research and public accessibility, "
+    "this initiative provides high-fidelity, open-source psychological assessments at zero cost to the user."
+)
+st.sidebar.markdown("---")
+st.sidebar.caption("Version 1.0.0 | Clinical Build")
+
+# =========================================================
+# 3. MAIN UI & ETHICS
+# =========================================================
+st.title("Clinical Personality Assessment")
+
+st.info("**Research Ethics & Privacy Notice:** This application does not use a database. Your responses are processed temporarily in server memory to generate your report and are immediately, permanently deleted once you close this page. No data is tracked, stored, or shared.")
+
+with st.expander("📖 Understand the Science (Click to Expand)", expanded=False):
+    st.markdown("""
+    ### What is Personality?
+    Personality refers to the enduring characteristics and behavior that comprise a person's unique adjustment to life, including major traits, interests, drives, values, self-concept, abilities, and emotional patterns.
+    
+    ### The OCEAN Framework (Five-Factor Model)
+    The Five-Factor Model represents the clinical consensus on the fundamental dimensions of human personality:
+    * **O**penness to Experience: Intellectual curiosity and creative imagination.
+    * **C**onscientiousness: Organization, productiveness, and responsibility.
+    * **E**xtraversion: Sociability, assertiveness, and energy levels.
+    * **A**greeableness: Compassion, respectfulness, and trust in others.
+    * **N**euroticism: Emotional volatility and vulnerability to stress.
+    
+    ### The Mini-IPIP Instrument
+    This assessment utilizes the **Mini-IPIP** (Donnellan et al., 2006), a rigorously validated 20-item short form of the International Personality Item Pool. 
+    * **Reliability:** Demonstrates acceptable internal consistency across all five trait scales.
+    * **Validity:** Shows strong convergent, discriminant, and criterion-related validity when compared to longer, proprietary clinical inventories.
+    """)
+
+st.header("Subject Information & Consent")
 name = st.text_input("Full Name:")
 
+# The mandatory consent checkbox
+consent = st.checkbox("I have read the privacy notice, understand the theoretical framework, and consent to participate.")
+
 # =========================================================
-# 3. PSYCHOMETRIC SCALE SETUP
-# WHY: Map the qualitative Likert scale to quantitative values for scoring.
+# 4. PSYCHOMETRIC SCALE SETUP
 # =========================================================
 scale = {
     "Very Inaccurate": 1,
@@ -37,7 +72,6 @@ st.write("Please select how accurately each statement describes you.")
 
 answers = {}
 
-# The standardized 20 items from the Mini-IPIP
 questions = {
     1: "1. Am the life of the party.",
     2: "2. Sympathize with others' feelings.",
@@ -61,28 +95,13 @@ questions = {
     20: "20. Do not have a good imagination."
 }
 
-# =========================================================
-# 4. INTERFACE AUTOMATION
-# WHY: Loop through the questions dictionary to automatically render 
-# 20 radio buttons and store the numerical value of the user's choices.
-# =========================================================
 for q_num, q_text in questions.items():
     user_choice = st.radio(q_text, options_list, key=f"q{q_num}")
     answers[q_num] = scale[user_choice]
 
-# =========================================================
-# 5. REVERSE SCORING FUNCTION
-# WHY: Mitigate acquiescence bias. Flips the score mathematically 
-# (e.g., Maximum Scale Value + 1 - Raw Score).
-# =========================================================
 def reverse_score(val):
     return 6 - val
 
-# =========================================================
-# 6. CLINICAL INTERPRETATION ENGINE
-# WHY: Translates raw mathematical scores into descriptive clinical profiles 
-# based on standardized thresholds (High, Moderate, Low).
-# =========================================================
 def get_trait_description(trait, score):
     if score >= 15:
         level = "High"
@@ -109,20 +128,22 @@ def get_trait_description(trait, score):
     return level, desc
 
 # =========================================================
-# 7. DATA PROCESSING & PDF GENERATION TRIGGER
+# 5. DATA PROCESSING TRIGGER
 # =========================================================
 if st.button("Generate Clinical Profile"):
-    if name:
+    if not consent:
+        st.error("⚠️ Please check the informed consent box before proceeding.")
+    elif not name:
+        st.error("⚠️ Please enter the subject's name before executing scoring protocols.")
+    else:
         st.success("Executing scoring protocols...")
 
-        # Calculate Trait Scores using the Mini-IPIP key
         ext = answers[1] + answers[11] + reverse_score(answers[6]) + reverse_score(answers[16])
         agr = answers[2] + answers[12] + reverse_score(answers[7]) + reverse_score(answers[17])
         con = answers[3] + answers[13] + reverse_score(answers[8]) + reverse_score(answers[18])
         neu = answers[4] + answers[14] + reverse_score(answers[9]) + reverse_score(answers[19])
         ope = answers[5] + reverse_score(answers[10]) + reverse_score(answers[15]) + reverse_score(answers[20])
 
-        # Display results on the web app interface
         st.subheader("Your Big Five Trait Scores (Out of 20)")
         st.write(f"**Extraversion:** {ext}")
         st.write(f"**Agreeableness:** {agr}")
@@ -130,33 +151,26 @@ if st.button("Generate Clinical Profile"):
         st.write(f"**Neuroticism:** {neu}")
         st.write(f"**Openness (Intellect):** {ope}")
 
-        # =========================================================
-        # 8. AESTHETIC PDF COMPILATION
-        # WHY: Construct a professional, colored, and dynamically formatted document.
-        # =========================================================
+        # PDF COMPILATION
         pdf = FPDF()
         pdf.add_page()
         
-        # Draw a dark slate-grey rectangular header
         pdf.set_fill_color(30, 41, 59) 
         pdf.rect(0, 0, 210, 40, 'F')
         
-        # White Header Text
         pdf.set_text_color(255, 255, 255)
         pdf.set_font("Arial", 'B', 22)
         pdf.cell(0, 15, txt="CLINICAL PERSONALITY PROFILE", ln=True, align='C')
         pdf.set_font("Arial", 'I', 14)
         pdf.cell(0, 5, txt="Mini-IPIP Big Five Assessment", ln=True, align='C')
         
-        # User Info Section (Reset to black text)
         pdf.set_y(50)
         pdf.set_text_color(0, 0, 0)
         pdf.set_font("Arial", 'B', 14)
         pdf.cell(0, 10, txt=f"Prepared For: {name}", ln=True)
-        pdf.line(10, 60, 200, 60) # Visual divider line
+        pdf.line(10, 60, 200, 60) 
         pdf.ln(5)
 
-        # Loop through calculated traits to print them into the PDF
         traits = [
             ("Extraversion", ext),
             ("Agreeableness", agr),
@@ -168,22 +182,16 @@ if st.button("Generate Clinical Profile"):
         for trait, score in traits:
             level, description = get_trait_description(trait, score)
             
-            # Trait Name and Score (Blue bold text)
             pdf.set_font("Arial", 'B', 12)
             pdf.set_text_color(41, 128, 185) 
             pdf.cell(0, 10, txt=f"{trait} - Score: {score}/20 ({level})", ln=True)
             
-            # Clinical Description (Dark grey regular text)
             pdf.set_font("Arial", '', 11)
             pdf.set_text_color(50, 50, 50) 
             pdf.multi_cell(0, 6, txt=description)
-            pdf.ln(4) # Spacing between traits
+            pdf.ln(4)
 
-        # =========================================================
-        # 9. SECURE CLOUD FILE HANDLING & DOWNLOAD
-        # WHY: Create a temporary file buffer so the user can download the PDF 
-        # without requiring server-side storage permissions.
-        # =========================================================
+        # DOWNLOAD BUTTON
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
             pdf.output(tmp_file.name)
             
@@ -194,5 +202,3 @@ if st.button("Generate Clinical Profile"):
                     file_name=f"{name}_clinical_profile.pdf",
                     mime="application/pdf"
                 )
-    else:
-        st.error("Please enter the subject's name before executing scoring protocols.")
